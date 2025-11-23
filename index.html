@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Team Builder - Konni Dex Style</title>
+  <style>
+    :root{
+      --bg:#04050a; --panel:#071020; --accent:#0f4e9a; --accent-2:#1f7bd6; --gold:#d9b44a; --glass: rgba(255,255,255,0.03);
+      --card-w:110px; --card-h:140px;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:#e8eef8}
+    body{display:flex;flex-direction:column;align-items:center;gap:16px;padding:18px}
+
+    /* page frame */
+    .container{width:100%;max-width:1200px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    header h1{font-size:18px;margin:0}
+
+    /* main panel */
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:14px;box-shadow:0 8px 30px rgba(2,6,23,0.7)}
+    .layout{display:grid;grid-template-columns:360px 1fr;gap:14px}
+
+    /* left: player pool */
+    .pool{background:var(--panel);padding:10px;border-radius:10px;height:620px;display:flex;flex-direction:column}
+    .tabs{display:flex;gap:6px;margin-bottom:10px}
+    .tab{flex:1;padding:8px 10px;border-radius:8px;text-align:center;cursor:pointer;background:transparent;border:1px solid rgba(255,255,255,0.03)}
+    .tab.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));box-shadow:0 6px 18px rgba(15,78,154,0.22)}
+    .search{margin-bottom:8px}
+    .cards{flex:1;overflow:auto;padding:6px;display:flex;flex-wrap:wrap;gap:8px}
+
+    .player-card{width:var(--card-w);height:var(--card-h);border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:8px;cursor:grab;border:1px solid rgba(255,255,255,0.04)}
+    .player-card.dragging{opacity:0.5}
+    .player-photo{width:80px;height:80px;border-radius:6px;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,0.35)}
+    .pname{font-size:12px;text-align:center}
+    .pcat{font-size:11px;opacity:0.7}
+
+    /* right: pitch */
+    .pitch-wrap{position:relative;padding:18px;border-radius:10px;background-image: url('/mnt/data/hq720.jpg');background-size:cover;background-position:center;min-height:620px}
+    .pitch{width:100%;height:100%;min-height:560px;background:linear-gradient(180deg, rgba(4,10,20,0.6), rgba(0,0,0,0.6));border-radius:8px;padding:18px;display:flex;flex-direction:column;align-items:center}
+    .pitch-inner{width:100%;max-width:760px;aspect-ratio:0.68/1;position:relative;background:rgba(7,18,34,0.6);border-radius:8px;padding:16px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.02)}
+
+    /* dropzones positions */
+    .dropzone{position:absolute;width:120px;height:150px;border-radius:8px;display:flex;align-items:center;justify-content:center;pointer-events:auto}
+    .dropzone.empty{border:2px dashed rgba(255,255,255,0.05)}
+    .dropzone.has{border:1px solid rgba(255,255,255,0.06)}
+
+    /* positions coordinates (approx) */
+    .pos-gk{left:50%;transform:translateX(-50%);bottom:12px}
+    .pos-d1{left:16%;top:60%}
+    .pos-d2{left:38%;top:60%}
+    .pos-d3{left:62%;top:60%}
+    .pos-d4{left:84%;top:60%}
+
+    .pos-m1{left:22%;top:36%}
+    .pos-m2{left:38%;top:34%}
+    .pos-m3{left:62%;top:34%}
+    .pos-m4{left:78%;top:36%}
+
+    .pos-a1{left:34%;top:10%}
+    .pos-a2{left:50%;top:8%}
+    .pos-a3{left:66%;top:10%}
+
+    /* placed small card inside dropzone */
+    .placed{width:100px;height:125px;display:flex;flex-direction:column;align-items:center;justify-content:space-between}
+    .placed .player-photo{width:84px;height:84px}
+
+    footer{display:flex;gap:10px;justify-content:flex-end;margin-top:10px}
+    button{background:linear-gradient(90deg,var(--accent),var(--accent-2));border:none;padding:10px 16px;border-radius:8px;color:white;cursor:pointer}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+
+    /* responsive */
+    @media (max-width:900px){
+      .layout{grid-template-columns:1fr;}
+      .pool{order:2;height:440px}
+      .pitch-wrap{order:1}
+      .pitch-inner{max-width:100%;aspect-ratio:0.65/1}
+      .dropzone{width:95px;height:125px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header><h1>Team Builder</h1><div>Pick 11 — one per position</div></header>
+
+    <div class="panel layout">
+      <div class="pool">
+        <div class="tabs">
+          <div class="tab active" data-cat="ATT">Attackers</div>
+          <div class="tab" data-cat="MID">Midfielders</div>
+          <div class="tab" data-cat="DEF">Defenders</div>
+          <div class="tab" data-cat="GK">Goalkeepers</div>
+        </div>
+        <div class="search"><input id="filter" placeholder="Filter player name" style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit"/></div>
+        <div class="cards" id="cards"></div>
+        <div style="margin-top:8px;font-size:12px;opacity:0.8">Click a card then click a position to place, or drag it onto the pitch.<br>Players are removed from the pool when placed.</div>
+      </div>
+
+      <div class="pitch-wrap">
+        <div class="pitch">
+          <div class="pitch-inner" id="pitch">
+            <!-- Dropzones -->
+            <div class="dropzone pos-gk empty" data-accept="GK" data-pos="GK">GK</div>
+            <div class="dropzone pos-d1 empty" data-accept="DEF" data-pos="LB">LB</div>
+            <div class="dropzone pos-d2 empty" data-accept="DEF" data-pos="CB1">CB</div>
+            <div class="dropzone pos-d3 empty" data-accept="DEF" data-pos="CB2">CB</div>
+            <div class="dropzone pos-d4 empty" data-accept="DEF" data-pos="RB">RB</div>
+
+            <div class="dropzone pos-m1 empty" data-accept="MID" data-pos="LM">LM</div>
+            <div class="dropzone pos-m2 empty" data-accept="MID" data-pos="CM1">CM</div>
+            <div class="dropzone pos-m3 empty" data-accept="MID" data-pos="CM2">CM</div>
+            <div class="dropzone pos-m4 empty" data-accept="MID" data-pos="RM">RM</div>
+
+            <div class="dropzone pos-a1 empty" data-accept="ATT" data-pos="LW">LW</div>
+            <div class="dropzone pos-a2 empty" data-accept="ATT" data-pos="ST">ST</div>
+            <div class="dropzone pos-a3 empty" data-accept="ATT" data-pos="RW">RW</div>
+
+          </div>
+        </div>
+        <footer>
+          <button id="reset" class="btn-ghost">Reset</button>
+          <button id="export">Submit Team</button>
+        </footer>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // SAMPLE PLAYERS - replace with your real players (grouped by category)
+    const PLAYERS = {
+      ATT:[
+        {id:'att1',name:'K. Mbappe',photo:'https://i.pravatar.cc/120?img=32'},
+        {id:'att2',name:'L. Messi',photo:'https://i.pravatar.cc/120?img=12'},
+        {id:'att3',name:'R. Lewandowski',photo:'https://i.pravatar.cc/120?img=5'},
+        {id:'att4',name:'E. Haaland',photo:'https://i.pravatar.cc/120?img=6'}
+      ],
+      MID:[
+        {id:'mid1',name:'K. De Bruyne',photo:'https://i.pravatar.cc/120?img=7'},
+        {id:'mid2',name:'L. Modric',photo:'https://i.pravatar.cc/120?img=8'},
+        {id:'mid3',name:'J. Henderson',photo:'https://i.pravatar.cc/120?img=9'},
+        {id:'mid4',name:'B. Silva',photo:'https://i.pravatar.cc/120?img=10'}
+      ],
+      DEF:[
+        {id:'def1',name:'V. van Dijk',photo:'https://i.pravatar.cc/120?img=11'},
+        {id:'def2',name:'S. Ramos',photo:'https://i.pravatar.cc/120?img=13'},
+        {id:'def3',name:'J. Cancelo',photo:'https://i.pravatar.cc/120?img=14'},
+        {id:'def4',name:'A. Robertson',photo:'https://i.pravatar.cc/120?img=15'}
+      ],
+      GK:[
+        {id:'gk1',name:'M. Neuer',photo:'https://i.pravatar.cc/120?img=16'},
+        {id:'gk2',name:'A. Becker',photo:'https://i.pravatar.cc/120?img=17'},
+        {id:'gk3',name:'D. de Gea',photo:'https://i.pravatar.cc/120?img=18'}
+      ]
+    }
+
+    // state
+    let pool = JSON.parse(JSON.stringify(PLAYERS)); // deep copy
+    let selectedCard = null;
+
+    const cardsEl = document.getElementById('cards');
+    const tabs = document.querySelectorAll('.tab');
+    const filterInput = document.getElementById('filter');
+
+    function renderPool(category='ATT', filter=''){
+      cardsEl.innerHTML='';
+      const list = pool[category] || [];
+      list.filter(p=>p.name.toLowerCase().includes(filter.toLowerCase())).forEach(p=>{
+        const el = document.createElement('div'); el.className='player-card'; el.draggable=true; el.dataset.id=p.id; el.dataset.cat=category; el.dataset.name=p.name;
+        el.innerHTML = `<div class="player-photo" style="background-image:url('${p.photo}')"></div><div class="pname">${p.name}</div><div class="pcat">${category}</div>`;
+        // drag events
+        el.addEventListener('dragstart', e=>{
+          el.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', JSON.stringify({id:p.id,cat:category,name:p.name,photo:p.photo}));
+        })
+        el.addEventListener('dragend', ()=>el.classList.remove('dragging'))
+        // click-to-place
+        el.addEventListener('click', ()=>{
+          document.querySelectorAll('.player-card').forEach(c=>c.classList.remove('selected'));
+          el.classList.add('selected');
+          selectedCard = {id:p.id,cat:category,name:p.name,photo:p.photo,el};
+        })
+        cardsEl.appendChild(el);
+      })
+    }
+
+    tabs.forEach(tab=>tab.addEventListener('click', ()=>{tabs.forEach(t=>t.classList.remove('active')); tab.classList.add('active'); renderPool(tab.dataset.cat, filterInput.value);}));
+    filterInput.addEventListener('input', ()=>{const active=document.querySelector('.tab.active').dataset.cat; renderPool(active, filterInput.value)})
+
+    renderPool('ATT');
+
+    // dropzone logic
+    const dropzones = document.querySelectorAll('.dropzone');
+    dropzones.forEach(dz=>{
+      dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('hover'); })
+      dz.addEventListener('dragleave', e=>{ dz.classList.remove('hover'); })
+      dz.addEventListener('drop', e=>{
+        e.preventDefault(); dz.classList.remove('hover');
+        const data = e.dataTransfer.getData('text/plain');
+        if(!data) return;
+        const card = JSON.parse(data);
+        placeCardOnZone(card, dz);
+      })
+      dz.addEventListener('click', ()=>{
+        if(!selectedCard) return;
+        placeCardOnZone(selectedCard, dz);
+        // clear selection
+        document.querySelectorAll('.player-card.selected').forEach(c=>c.classList.remove('selected'));
+        selectedCard=null;
+      })
+    })
+
+    function placeCardOnZone(card, dz){
+      // Check category allowed
+      const accept = dz.dataset.accept; // GK, DEF, MID, ATT
+      if(card.cat !== accept){
+        // If you want flexible mapping (e.g. DEF accepts some DEF variants) change logic here.
+        alert('This position only accepts players from: ' + accept);
+        return;
+      }
+      // prevent placing if already occupied (optional: allow swapping)
+      if(dz.dataset.player){
+        // return current player back to pool
+        const prev = JSON.parse(dz.dataset.player);
+        pool[prev.cat].push({id:prev.id,name:prev.name,photo:prev.photo});
+      }
+      // remove player from pool
+      pool[card.cat] = pool[card.cat].filter(p=>p.id !== card.id);
+      // render small placed card
+      dz.dataset.player = JSON.stringify({id:card.id,cat:card.cat,name:card.name,photo:card.photo});
+      dz.classList.remove('empty'); dz.classList.add('has');
+      dz.innerHTML = `<div class="placed"><div class="player-photo" style="background-image:url('${card.photo}')"></div><div style="font-size:13px">${card.name}</div><div style="font-size:12px;opacity:0.75">${dz.dataset.pos}</div></div>`;
+      // re-render pool
+      const active=document.querySelector('.tab.active').dataset.cat; renderPool(active, filterInput.value);
+    }
+
+    // Reset button
+    document.getElementById('reset').addEventListener('click', ()=>{
+      pool = JSON.parse(JSON.stringify(PLAYERS));
+      document.querySelectorAll('.dropzone').forEach(dz=>{delete dz.dataset.player; dz.classList.remove('has'); dz.classList.add('empty'); dz.innerText = dz.dataset.pos;});
+      renderPool(document.querySelector('.tab.active').dataset.cat);
+    })
+
+    // Export/Submit
+    document.getElementById('export').addEventListener('click', ()=>{
+      const team = {};
+      document.querySelectorAll('.dropzone').forEach(dz=>{
+        const pos = dz.dataset.pos;
+        const p = dz.dataset.player ? JSON.parse(dz.dataset.player) : null;
+        team[pos] = p;
+      })
+      // Check all positions filled
+      const missing = Object.entries(team).filter(([k,v])=>v===null);
+      if(missing.length>0){
+        if(!confirm('Not all positions are filled. Submit partial team?')) return;
+      }
+      // Download JSON (client-side). Replace this with fetch() to send to your server or Google Sheets.
+      const blob = new Blob([JSON.stringify(team,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='team.json'; a.click(); URL.revokeObjectURL(url);
+      alert('Team exported as team.json (you can wire this to your server or Google Sheets).');
+    })
+
+    // Prevent accidental text drag
+    document.addEventListener('dragover', e=>e.preventDefault());
+
+  </script>
+</body>
+</html>
